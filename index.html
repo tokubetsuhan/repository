@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log File Parser</title>
+    <style>
+        /* Dark theme styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+        #drop-zone {
+            width: 300px;
+            height: 100px;
+            border: 2px dashed #1e90ff;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1e90ff;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        #drop-zone:hover {
+            background-color: #1e1e1e;
+        }
+        #output {
+            width: 80%;
+            max-width: 600px;
+            white-space: pre-wrap;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        a {
+            color: #1e90ff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Log File Parser</h1>
+<div id="drop-zone">Drag and drop a .log file here</div>
+<div id="output">Matching lines and mappings will appear here...</div>
+
+<script>
+    document.getElementById('drop-zone').addEventListener('dragover', (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    });
+
+    document.getElementById('drop-zone').addEventListener('drop', (event) => {
+        event.preventDefault();
+        const file = event.dataTransfer.files[0];
+        if (file && file.name.endsWith('.log')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                const lines = content.split('\n');
+                
+                let uuidToName = {};
+                let lastName = "";
+
+                lines.forEach(line => {
+                    if (line.includes('LogDisplayNameManager')) {
+                        // Match the game name even if it contains spaces or numbers
+                        const gameNameMatch = line.match(/GameName=([A-Za-z0-9\s]+)/);
+                        if (gameNameMatch) {
+                            lastName = gameNameMatch[1].trim();
+                        }
+
+                        // Match UUID and associate it with lastName
+                        const uuidMatch = line.match(/[0-9a-fA-F\-]{36}/);
+                        if (uuidMatch && lastName) {
+                            uuidToName[uuidMatch[0]] = lastName;
+                        }
+                    }
+                });
+
+                // Display results with clickable links
+                const result = Object.entries(uuidToName).map(([uuid, name]) => 
+                    `<a href="https://vtl.lol/id/${uuid}" target="_blank">${uuid}</a> = ${name}`
+                ).join('<br>');
+                document.getElementById('output').innerHTML = result || 'No matching lines found.';
+            };
+            reader.readAsText(file);
+        } else {
+            alert('Please drop a valid .log file.');
+        }
+    });
+</script>
+
+</body>
+</html>
