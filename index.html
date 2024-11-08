@@ -40,6 +40,20 @@
             background: #1e1e1e;
             color: #ffffff;
         }
+        .game-session {
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #2b2b2b;
+            position: relative;
+        }
+        .session-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: left;
+            color: #1e90ff;
+        }
         a {
             color: #1e90ff;
             text-decoration: none;
@@ -69,12 +83,38 @@
             reader.onload = (e) => {
                 const content = e.target.result;
                 const lines = content.split('\n');
-                
-                let uuidToName = {};
-                let lastName = "";
+
+                let lastTimestamp = null;
+                let gameSessions = [];
+                let currentSession = [];
+                let sessionUUIDs = new Set(); // Track unique UUIDs in the current session
+                let sessionStartTime = ""; // Store the start time for the current session
 
                 lines.forEach(line => {
                     if (line.includes('LogDisplayNameManager')) {
+                        // Match the timestamp, reformat to yyyy.mm.dd hh:mm:ss
+                        const timestampMatch = line.match(/\[(\d{4}\.\d{2}\.\d{2})-(\d{2}\.\d{2}\.\d{2})/);
+                        let formattedTimestamp = '';
+                        if (timestampMatch) {
+                            formattedTimestamp = `${timestampMatch[1]} ${timestampMatch[2].replace(/\./g, ':')}`;
+                            const currentTimestamp = new Date(`${timestampMatch[1].replace(/\./g, '-')}T${timestampMatch[2].replace(/\./g, ':')}`);
+                            
+                            // Start new session if more than 4 seconds have passed since the last log
+                            if (lastTimestamp && (currentTimestamp - lastTimestamp) / 1000 > 4) {
+                                if (currentSession.length > 0) {
+                                    gameSessions.push({ startTime: sessionStartTime, entries: currentSession });
+                                    currentSession = [];
+                                    sessionUUIDs.clear(); // Reset for the new session
+                                }
+                            }
+                            lastTimestamp = currentTimestamp;
+                            
+                            // Set session start time for the first entry in the session
+                            if (!sessionStartTime || currentSession.length === 0) {
+                                sessionStartTime = formattedTimestamp;
+                            }
+                        }
+
                         // Match the game name even if it contains spaces or numbers
                         const gameNameMatch = line.match(/GameName=([A-Za-z0-9\s]+)/);
                         if (gameNameMatch) {
@@ -83,17 +123,24 @@
 
                         // Match UUID and associate it with lastName
                         const uuidMatch = line.match(/[0-9a-fA-F\-]{36}/);
-                        if (uuidMatch && lastName) {
-                            uuidToName[uuidMatch[0]] = lastName;
+                        if (uuidMatch && lastName && !sessionUUIDs.has(uuidMatch[0])) {
+                            // Only add if UUID hasn't been added yet in this session
+                            const entry = `<a href="https://vtl.lol/id/${uuidMatch[0]}" target="_blank">${uuidMatch[0]}</a> - ${lastName}?`;
+                            currentSession.push(entry);
+                            sessionUUIDs.add(uuidMatch[0]); // Mark this UUID as added for this session
                         }
                     }
                 });
 
-                // Display results with clickable links
-                const result = Object.entries(uuidToName).map(([uuid, name]) => 
-                    `<a href="https://vtl.lol/id/${uuid}" target="_blank">${uuid}</a> = ${name}`
-                ).join('<br>');
-                document.getElementById('output').innerHTML = result || 'No matching lines found.';
+                // Add the last session if it has entries
+                if (currentSession.length > 0) {
+                    gameSessions.push({ startTime: sessionStartTime, entries: currentSession });
+                }
+
+                // Display grouped game sessions with session start time as header
+                document.getElementById('output').innerHTML = gameSessions.reverse().map(session =>
+                    `<div class="game-session"><div class="session-header">${session.startTime}</div>${session.entries.join('<br>')}</div>`
+                ).join('');
             };
             reader.readAsText(file);
         } else {
