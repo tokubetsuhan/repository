@@ -1,11 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log File Parser</title>
+    <title>parser</title>
     <style>
-        /* Dark theme styles */
         body {
             font-family: Arial, sans-serif;
             background-color: #121212;
@@ -52,7 +52,7 @@
             font-weight: bold;
             margin-bottom: 10px;
             text-align: left;
-            color: #1e90ff;
+            color: #3c9dff;
         }
         a {
             color: #1e90ff;
@@ -66,8 +66,8 @@
 <body>
 
 <h1>Log File Parser</h1>
-<div id="drop-zone">Drag and drop a .log file here</div>
-<div id="output">Matching lines and mappings will appear here...</div>
+<div id="drop-zone">drag and drop a log file here</div>
+<div id="output">mappings will appear here...</div>
 
 <script>
     document.getElementById('drop-zone').addEventListener('dragover', (event) => {
@@ -78,56 +78,48 @@
     document.getElementById('drop-zone').addEventListener('drop', (event) => {
         event.preventDefault();
         const file = event.dataTransfer.files[0];
-        if (file && file.name.endsWith('.log')) {
+        if (file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const content = e.target.result;
                 const lines = content.split('\n');
 
-                let lastTimestamp = null;
                 let gameSessions = [];
+                let lastTimestamp = null;
                 let currentSession = [];
-                let sessionUUIDs = new Set(); // Track unique UUIDs in the current session
-                let sessionStartTime = ""; // Store the start time for the current session
+                let sessionUUIDs = new Set();
+                let sessionStartTime = "";
 
                 lines.forEach(line => {
                     if (line.includes('LogDisplayNameManager')) {
-                        // Match the timestamp, reformat to yyyy.mm.dd hh:mm:ss
                         const timestampMatch = line.match(/\[(\d{4}\.\d{2}\.\d{2})-(\d{2}\.\d{2}\.\d{2})/);
                         let formattedTimestamp = '';
                         if (timestampMatch) {
                             formattedTimestamp = `${timestampMatch[1]} ${timestampMatch[2].replace(/\./g, ':')}`;
                             const currentTimestamp = new Date(`${timestampMatch[1].replace(/\./g, '-')}T${timestampMatch[2].replace(/\./g, ':')}`);
                             
-                            // Start new session if more than 4 seconds have passed since the last log
                             if (lastTimestamp && (currentTimestamp - lastTimestamp) / 1000 > 4) {
                                 if (currentSession.length > 0) {
                                     gameSessions.push({ startTime: sessionStartTime, entries: currentSession });
                                     currentSession = [];
-                                    sessionUUIDs.clear(); // Reset for the new session
+                                    sessionUUIDs.clear();
                                 }
                             }
                             lastTimestamp = currentTimestamp;
                             
-                            // Set session start time for the first entry in the session
                             if (!sessionStartTime || currentSession.length === 0) {
                                 sessionStartTime = formattedTimestamp;
                             }
                         }
 
-                        // Match the game name even if it contains spaces or numbers
-                        const gameNameMatch = line.match(/GameName=([A-Za-z0-9\s]+)/);
-                        if (gameNameMatch) {
-                            lastName = gameNameMatch[1].trim();
-                        }
-
-                        // Match UUID and associate it with lastName
                         const uuidMatch = line.match(/[0-9a-fA-F\-]{36}/);
-                        if (uuidMatch && lastName && !sessionUUIDs.has(uuidMatch[0])) {
-                            // Only add if UUID hasn't been added yet in this session
-                            const entry = `<a href="https://vtl.lol/id/${uuidMatch[0]}" target="_blank">${uuidMatch[0]}</a> - ${lastName}?`;
+                        if (uuidMatch && !sessionUUIDs.has(uuidMatch[0])) {
+                            const entry = `<a href="https://vtl.lol/id/${uuidMatch[0]}" target="_blank">${uuidMatch[0]}</a>`;
                             currentSession.push(entry);
-                            sessionUUIDs.add(uuidMatch[0]); // Mark this UUID as added for this session
+                            sessionUUIDs.add(uuidMatch[0]);
+                        }
+                        if (uuidMatch){
+                            console.log(uuidMatch[0]);
                         }
                     }
                 });
@@ -144,7 +136,7 @@
             };
             reader.readAsText(file);
         } else {
-            alert('Please drop a valid .log file.');
+            alert('please drop a valid file.');
         }
     });
 </script>
